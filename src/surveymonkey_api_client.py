@@ -4,8 +4,8 @@ import aiohttp
 class SurveyMonkey_API_Client:
     BASE_URL = "https://api.surveymonkey.net"
 
-    SURVEY_ENDPOINT = "/v3/surveys"
-    RESPONSES_ENDPOINT = lambda id: f"/v3/surveys/{id}/responses/bulk"
+    SURVEY_ENDPOINT = "v3/surveys"
+    RESPONSES_ENDPOINT = lambda id: f"v3/surveys/{id}/responses/bulk"
 
     def __init__(self, api_token: str):
         self.api_token = api_token
@@ -21,10 +21,13 @@ class SurveyMonkey_API_Client:
         data = await self._fetch(f"{self.BASE_URL}/{endpoint}", params=params)
         return data
 
-    async def get_surveys(self, amount=50, search_str: str = "") -> list[dict]:
-        response = await self.fetch_data(
-            self.SURVEY_ENDPOINT, params={"per_page": amount, "title": search_str}
-        )
+    async def get_surveys(self, amount=50, search_str: str = None) -> list[dict]:
+        params = {"per_page": amount}
+
+        if search_str:
+            params["title"] = search_str
+
+        response = await self.fetch_data(self.SURVEY_ENDPOINT, params=params)
 
         return response["data"]
 
