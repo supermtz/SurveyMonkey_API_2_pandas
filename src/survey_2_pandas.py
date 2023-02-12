@@ -1,6 +1,6 @@
 import pandas as pd
 
-class Survey_2_Pandas:
+class Survey2Pandas:
     """Class to convert Survey data to Pandas DataFrames"""
 
     STATIC_VARIABLES = [
