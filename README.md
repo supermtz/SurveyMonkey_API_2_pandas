@@ -2,6 +2,8 @@
 Python SurveyMonkey survey data downloader via API to a Pandas Dataframe 
 
 ## Contributing
+-----
+
 Clone the project
 
 ```bash
@@ -19,4 +21,16 @@ Install dependencies
 ```bash
   pip install pipenv
   pipenv install
+```
+
+Activate the virtual environment
+
+```bash
+  pipenv shell
+```
+
+**NOTE:** We are using Pipenv. Our recommendation is to use Pipenv. If that is not desirable or possible, we alse include a `requirements.txt` file. You can install the dependencies like this:
+
+```bash
+  pip install -r requirements.txt
 ```
