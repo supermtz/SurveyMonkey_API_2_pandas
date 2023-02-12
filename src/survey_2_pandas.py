@@ -30,7 +30,6 @@ class Survey_2_Pandas:
         self._get_header()
         self._get_responses()
 
-        # Create DataFrame with header and subheader as columns and add responses
         self.df = pd.DataFrame([self.header, self.subheader], columns=self.header).append(self.responses, ignore_index=True)
 
         return self.df
@@ -74,10 +73,8 @@ class Survey_2_Pandas:
             row = []
 
             for variable in self.STATIC_VARIABLES:
-                # Add static variables to row if they exist
                 row.append(response.get(variable, ""))
             for question in response["questions"]:
-                # Do the same thing but with match statement
                 match question["family"]:
                     case "single_choice":
                         row[self.questions_map[question["id"]]] = question["answers"]["choices"]["value"]
