@@ -8,7 +8,7 @@ class Endpoint(str, Enum):
     RESPONSES = "v3/surveys/{id}/responses/bulk"
 
 
-class SurveyMonkey_API_Client:
+class SurveyMonkeyAPIClient:
     BASE_URL = "https://api.surveymonkey.net"
 
     def __init__(self, api_token: str):
