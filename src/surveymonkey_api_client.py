@@ -1,11 +1,15 @@
+from enum import Enum
+import json
 import aiohttp
+
+
+class Endpoint(str, Enum):
+    SURVEY = "v3/surveys"
+    RESPONSES = "v3/surveys/{id}/responses/bulk"
 
 
 class SurveyMonkey_API_Client:
     BASE_URL = "https://api.surveymonkey.net"
-
-    SURVEY_ENDPOINT = "v3/surveys"
-    RESPONSES_ENDPOINT = lambda id: f"v3/surveys/{id}/responses/bulk"
 
     def __init__(self, api_token: str):
         self.api_token = api_token
@@ -17,7 +21,7 @@ class SurveyMonkey_API_Client:
         ) as response:
             return await response.json()
 
-    async def fetch_data(self, endpoint: str, params: dict) -> dict:
+    async def fetch_data(self, endpoint: str, params: dict = {}) -> dict:
         data = await self._fetch(f"{self.BASE_URL}/{endpoint}", params=params)
         return data
 
@@ -27,23 +31,28 @@ class SurveyMonkey_API_Client:
         if search_str:
             params["title"] = search_str
 
-        response = await self.fetch_data(self.SURVEY_ENDPOINT, params=params)
+        response = await self.fetch_data(Endpoint.SURVEY, params=params)
 
         return response["data"]
 
     async def get_survey_by_id(self, id: str) -> list[dict]:
-        response = await self.fetch_data(f"{self.SURVEY_ENDPOINT}/{id}")
+        response = await self.fetch_data(f"{Endpoint.SURVEY}/{id}")
         return response["data"]
 
     async def get_survey_details(self, id: str) -> dict:
-        return await self.fetch_data(f"{self.SURVEY_ENDPOINT}/{id}/details")
+        return await self.fetch_data(f"{Endpoint.SURVEY}/{id}/details")
 
     async def get_responses(
-        self, id: str, amount: int = 50, custom_variables: dict = {}
+        self, id: str, amount: int = 50, custom_variables: dict = None
     ) -> list[dict]:
+        params = {"per_page": amount}
+
+        if custom_variables:
+            params["custom_variables"] = json.dumps(custom_variables, indent=None)
+
         response = await self.fetch_data(
-            self.RESPONSES_ENDPOINT(id),
-            params={"per_page": amount, "custom_variables": custom_variables},
+            Endpoint.RESPONSES.format(id=id),
+            params=params,
         )
 
         return response["data"]
