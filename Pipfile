@@ -4,11 +4,13 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-black = "*"
 pandas = "*"
 beautifulsoup4 = "*"
+aiohttp = "*"
 
 [dev-packages]
+colorama = "*"
+black = "*"
 
 [requires]
 python_version = "3.10"
