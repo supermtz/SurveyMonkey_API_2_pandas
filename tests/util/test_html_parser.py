@@ -1,5 +1,5 @@
 import unittest
-from src.util import html_parser
+from src.utils import html_parser
 
 
 class TestHtmlParser(unittest.TestCase):
