@@ -19,12 +19,12 @@ class API2Pandas:
         surveys = self.client.get_surveys(amount, search_str)
         self.survey_ids = [survey["id"] for survey in surveys]
 
-    async def get_survey_details(self, survey_id: str) -> dict:
+    async def _get_survey_details(self, survey_id: str) -> dict:
         """Get survey details"""
         survey_details = await self.client.get_survey_details(survey_id)
         return DetailsAdapter.parse_survey(survey_details)
 
-    async def get_responses(self, survey_id: str, amount = 50, custom_variables: dict = None) -> list:
+    async def _get_responses(self, survey_id: str, amount = 50, custom_variables: dict = None) -> list:
         """Get survey responses"""
         responses = await self.client.get_responses(survey_id, amount, custom_variables)
         ret_responses = []
@@ -32,33 +32,33 @@ class API2Pandas:
             ret_responses.append(AnswersResponseAdapter.parse(response))
         return ret_responses
 
-    def collect(self, amount = 50, custom_variables: dict = None) -> None:
+    def _collect(self, amount = 50, custom_variables: dict = None) -> None:
         """Collect survey details and responses"""
-        details = self.collect_details()
-        responses = self.collect_responses(amount, custom_variables)
+        details = self._collect_details()
+        responses = self._collect_responses(amount, custom_variables)
         asyncio.run(asyncio.gather(details, responses))
-        self.close()
+        self._close()
 
-    async def collect_details(self) -> None:
+    async def _collect_details(self) -> None:
         """Collect survey details and responses"""
-        co_survey_details = {survey_id: self.get_survey_details(survey_id) for survey_id in self.survey_ids}
+        co_survey_details = {survey_id: self._get_survey_details(survey_id) for survey_id in self.survey_ids}
         for survey_id, details in co_survey_details.items():
             self.survey_details[survey_id] = await details
 
-    async def collect_responses(self, amount = 50, custom_variables: dict = None) -> None:
+    async def _collect_responses(self, amount = 50, custom_variables: dict = None) -> None:
         """Collect survey details and responses"""
-        co_survey_responses = {survey_id: self.get_responses(survey_id, amount, custom_variables) for survey_id in self.survey_ids}
+        co_survey_responses = {survey_id: self._get_responses(survey_id, amount, custom_variables) for survey_id in self.survey_ids}
         for survey_id, responses in co_survey_responses.items():
             self.survey_responses[survey_id] = await responses
 
     def run(self, response_amount = 50, custom_variables: dict = None) -> pd.DataFrame:
         """Run the parser"""
-        self.collect(response_amount, custom_variables)
-        self.close()
+        self._collect(response_amount, custom_variables)
+        self._close()
         parser = Survey2Pandas(self.survey_details, self.survey_responses)
         self.df = parser.convert()
         return self.df
 
-    def close(self) -> None:
+    def _close(self) -> None:
         """Close the client session"""
         self.client.close()
