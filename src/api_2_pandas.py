@@ -1,19 +1,17 @@
-import asyncio
+import asyncio as aio
 import pandas as pd
+from src.utils.dictionary import get_values, get_nested_value
 from src.surveymonkey_api_client import SurveyMonkeyAPIClient
-from src.adapters.details_adapter import DetailsAdapter
-from src.adapters.answers_response_adapter import AnswersResponseAdapter
+from src.parsers.details_parser import DetailsParser
+from src.parsers.response_parser import ResponseParser
 from src.survey_2_pandas import Survey2Pandas
 
 class API2Pandas:
-    def __init__(self, api_token: str, survey_ids = None) -> None:
+    def __init__(self, api_token: str, survey_ids: list = None) -> None:
         self.client = SurveyMonkeyAPIClient(api_token)
         self.survey_ids = survey_ids if survey_ids else []
-        self.survey_details = {}
-        self.survey_responses = {}
+        self.dfs = {}
 
-        self.df = None
-    
     def search_surveys(self, amount = 50, search_str: str = None) -> None:
         """Find surveys by title"""
         surveys = self.client.get_surveys(amount, search_str)
@@ -22,41 +20,72 @@ class API2Pandas:
     async def get_survey_details(self, survey_id: str) -> dict:
         """Get survey details"""
         survey_details = await self.client.get_survey_details(survey_id)
-        return DetailsAdapter.parse_survey(survey_details)
+        return survey_details
 
     async def get_responses(self, survey_id: str, amount = 50, custom_variables: dict = None) -> list:
         """Get survey responses"""
         responses = await self.client.get_responses(survey_id, amount, custom_variables)
-        ret_responses = []
-        for response in responses:
-            ret_responses.append(AnswersResponseAdapter.parse(response))
-        return ret_responses
+        return responses
 
-    def collect(self, amount = 50, custom_variables: dict = None) -> None:
-        """Collect survey details and responses"""
-        details = self.collect_details()
-        responses = self.collect_responses(amount, custom_variables)
-        asyncio.run(asyncio.gather(details, responses))
-        self.close()
+    # async def collect(self, amount = 50, custom_variables: dict = None) -> dict:
+    #     """Collect survey details and responses"""
+    #     details = aio.create_task(self.collect_details())
+    #     responses = aio.create_task(self.collect_responses(amount, custom_variables))
+    #     await details
+    #     await responses
+    #     details = details.result()
+    #     responses = responses.result()
+    #     return {
+    #         survey_id: {
+    #             "details": details[survey_id],
+    #             "responses": responses[survey_id],
+    #         }
+    #         for survey_id in self.survey_ids
+    #     }
 
-    async def collect_details(self) -> None:
-        """Collect survey details and responses"""
-        co_survey_details = {survey_id: self.get_survey_details(survey_id) for survey_id in self.survey_ids}
-        for survey_id, details in co_survey_details.items():
-            self.survey_details[survey_id] = await details
+    # async def collect_details(self) -> dict:
+    #     """Collect survey details and responses"""
+    #     survey_details = {survey_id: aio.create_task(self.get_survey_details(survey_id)) for survey_id in self.survey_ids}
+    #     for survey_id, details in survey_details.items():
+    #         await details
+    #         survey_details[survey_id] = details.result()
+    #     return survey_details
 
-    async def collect_responses(self, amount = 50, custom_variables: dict = None) -> None:
-        """Collect survey details and responses"""
-        co_survey_responses = {survey_id: self.get_responses(survey_id, amount, custom_variables) for survey_id in self.survey_ids}
-        for survey_id, responses in co_survey_responses.items():
-            self.survey_responses[survey_id] = await responses
+    # async def collect_responses(self, amount = 50, custom_variables: dict = None) -> dict:
+    #     """Collect survey details and responses"""
+    #     survey_responses = {survey_id: aio.create_task(self.get_responses(survey_id, amount, custom_variables)) for survey_id in self.survey_ids}
+    #     for survey_id, response in survey_responses.items():
+    #         await response
+    #         survey_responses[survey_id] = response.result()
+    #     return survey_responses
+    
+    async def create_df(self, survey_id: str, response_amount = 50, custom_variables: dict = None) -> pd.DataFrame:
+        """Create a pandas dataframe from a survey"""
+        details = await self.get_survey_details(survey_id)
+        responses = await self.get_responses(survey_id, response_amount, custom_variables)
+        details = DetailsParser.parse_survey(details)
+        responses = ResponseParser.parse_responses(responses, details)
+        return Survey2Pandas(details, responses).convert()
+    
+    async def create_dfs(self, response_amount = 50, custom_variables: dict = None) -> dict:
+        """Create pandas dataframes from surveys"""
+        dfs = {}
+
+        for survey_id in self.survey_ids:
+            dfs[survey_id] = aio.create_task(self.create_df(survey_id, response_amount, custom_variables))
+        
+        for survey_id, df in dfs.items():
+            await df
+            dfs[survey_id] = df.result()
+        
+        return dfs
+         
 
     def run(self, response_amount = 50, custom_variables: dict = None) -> pd.DataFrame:
         """Run the parser"""
-        self.collect(response_amount, custom_variables)
+        self.dfs = aio.run(self.create_dfs(response_amount, custom_variables))
         self.close()
-        parser = Survey2Pandas(self.survey_details, self.survey_responses)
-        self.df = parser.convert()
+    
         return self.df
 
     def close(self) -> None:

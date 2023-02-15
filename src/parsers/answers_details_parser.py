@@ -1,23 +1,23 @@
-class AnswerDetailsAdapter:
+class AnswerDetailsParser:
     @classmethod
-    def convert(cls, answers: dict, family: str, subtype: str = "") -> list:
+    def parse(cls, answers: dict, family: str, subtype: str = "") -> list:
         match family:
             case "single_choice":
-                return cls.convert_single_choice(answers)
+                return cls._parse_single_choice(answers)
+            case "multiple_choice":
+                return cls._parse_multiple_choice(answers)
             case "matrix":
                 match subtype:
                     case "single":
-                        return cls.convert_matrix_single(answers)
+                        return cls._parse_matrix_single(answers)
                     case "rating":
-                        return cls.convert_matrix_rating(answers)
-            case "multiple_choice":
-                return cls.convert_multiple_choice(answers)
+                        return cls._parse_matrix_rating(answers)
 
     # Means static method (one for all instances of class)
     # RETURNS:
     # A list of dicts with following keys: "choice_id", "text", "value"
     @classmethod
-    def convert_single_choice(cls, answers: dict) -> list:
+    def _parse_single_choice(cls, answers: dict) -> list:
         choices = answers["choices"]
         return list(
             map(
@@ -31,7 +31,7 @@ class AnswerDetailsAdapter:
         )
 
     @classmethod
-    def convert_matrix_single(cls, answers: dict) -> list:
+    def _parse_matrix_single(cls, answers: dict) -> list:
         rows = list(
             map(lambda row: {"row_id": row["id"], "text": row["text"]}, answers["rows"])
         )
@@ -52,7 +52,7 @@ class AnswerDetailsAdapter:
         }
 
     @classmethod
-    def convert_matrix_rating(cls, answers: dict) -> list:
+    def _parse_matrix_rating(cls, answers: dict) -> list:
         rows = list(
             map(lambda row: {"row_id": row["id"], "text": row["text"]}, answers["rows"])
         )
@@ -73,7 +73,7 @@ class AnswerDetailsAdapter:
         }
 
     @classmethod
-    def convert_multiple_choice(cls, answers: dict) -> list:
+    def _parse_multiple_choice(cls, answers: dict) -> list:
         choices = answers["choices"]
         return list(
             map(
