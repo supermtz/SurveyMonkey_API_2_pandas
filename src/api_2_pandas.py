@@ -1,10 +1,9 @@
 import asyncio as aio
 import pandas as pd
+
 from src.utils.dictionary import get_values, get_nested_value
-from src.surveymonkey_api_client import SurveyMonkeyAPIClient
-from src.parsers.details_parser import DetailsParser
-from src.parsers.response_parser import ResponseParser
-from src.survey_2_pandas import Survey2Pandas
+from src.API_client import SurveyMonkeyAPIClient
+from src.parsers import DetailsParser, ResponseParser, PandasParser
 
 class API2Pandas:
     def __init__(self, api_token: str, survey_ids: list = None) -> None:
@@ -65,7 +64,7 @@ class API2Pandas:
         responses = await self.get_responses(survey_id, response_amount, custom_variables)
         details = DetailsParser.parse_survey(details)
         responses = ResponseParser.parse_responses(responses, details)
-        return Survey2Pandas(details, responses).convert()
+        return PandasParser(details, responses).convert()
     
     async def create_dfs(self, response_amount = 50, custom_variables: dict = None) -> dict:
         """Create pandas dataframes from surveys"""

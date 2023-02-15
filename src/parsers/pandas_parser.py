@@ -61,7 +61,7 @@ class ColumnMap:
     def get_row_index(self, id: str) -> int:
         return self.rows[id]
 
-class Survey2Pandas:
+class PandasParser:
     """Class to convert Survey data to Pandas DataFrames"""
 
     STATIC_VARIABLES = [
