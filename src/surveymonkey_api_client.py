@@ -1,7 +1,18 @@
 from enum import Enum
 import json
 import aiohttp
+# from asynci import as_completed
 
+from requests import Authbase, Request, Session
+
+class TokenAuthentication(Authbase):
+    """Attaches HTTPS API Token to a given Request object."""
+
+    def __init__(self, api_token: str):
+        self.api_token = api_token
+    
+    def __call__(self, r: Request):
+        r.headers['Authentication'] = f"bearer {self.api_token}"
 
 class Endpoint(str, Enum):
     SURVEY = "v3/surveys"
@@ -12,14 +23,12 @@ class SurveyMonkeyAPIClient:
     BASE_URL = "https://api.surveymonkey.net"
 
     def __init__(self, api_token: str):
-        self.api_token = api_token
-        self.session = aiohttp.ClientSession()
+        self.auth = TokenAuthentication(api_token)
+        self.session = Session()
 
     async def _fetch(self, url: str, params: dict) -> dict:
-        async with self.session.get(
-            url, headers=self.generate_header(self.api_token), params=params
-        ) as response:
-            return await response.json()
+        response = self.session.get(url, auth=self.auth, params=params)
+        return response.json()
 
     async def fetch_data(self, endpoint: str, params: dict = {}) -> dict:
         data = await self._fetch(f"{self.BASE_URL}/{endpoint}", params=params)
@@ -59,9 +68,3 @@ class SurveyMonkeyAPIClient:
 
     async def close(self):
         await self.session.close()
-
-    @classmethod
-    def generate_header(cls, api_token: str) -> dict:
-        return {
-            "Authorization": f"bearer {api_token}",
-        }
