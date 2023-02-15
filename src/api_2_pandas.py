@@ -16,12 +16,12 @@ class API2Pandas:
         surveys = self.client.get_surveys(amount, search_str)
         self.survey_ids = [survey["id"] for survey in surveys]
 
-    async def get_survey_details(self, survey_id: str) -> dict:
+    async def _get_survey_details(self, survey_id: str) -> dict:
         """Get survey details"""
         survey_details = await self.client.get_survey_details(survey_id)
         return survey_details
 
-    async def get_responses(self, survey_id: str, amount = 50, custom_variables: dict = None) -> list:
+    async def _get_responses(self, survey_id: str, amount = 50, custom_variables: dict = None) -> list:
         """Get survey responses"""
         responses = await self.client.get_responses(survey_id, amount, custom_variables)
         return responses
@@ -87,6 +87,6 @@ class API2Pandas:
     
         return self.df
 
-    def close(self) -> None:
+    def _close(self) -> None:
         """Close the client session"""
         self.client.close()
