@@ -1,3 +1,4 @@
+from concurrent.futures import ProcessPoolExecutor
 import asyncio as aio
 import pandas as pd
 
@@ -13,17 +14,20 @@ class API2Pandas:
 
     def search_surveys(self, amount = 50, search_str: str = None) -> None:
         """Find surveys by title"""
-        surveys = self.client.get_surveys(amount, search_str)
+        surveys = aio.run(self.client.get_surveys(amount, search_str))
         self.survey_ids = [survey["id"] for survey in surveys]
+        return self.survey_ids
 
     async def _get_survey_details(self, survey_id: str) -> dict:
         """Get survey details"""
         survey_details = await self.client.get_survey_details(survey_id)
+        survey_details = DetailsParser.parse_survey(survey_details)
         return survey_details
 
     async def _get_responses(self, survey_id: str, amount = 50, custom_variables: dict = None) -> list:
         """Get survey responses"""
         responses = await self.client.get_responses(survey_id, amount, custom_variables)
+        responses = ResponseParser.parse_responses(responses)
         return responses
 
     # async def collect(self, amount = 50, custom_variables: dict = None) -> dict:
@@ -60,15 +64,15 @@ class API2Pandas:
     
     async def create_df(self, survey_id: str, response_amount = 50, custom_variables: dict = None) -> pd.DataFrame:
         """Create a pandas dataframe from a survey"""
-        details = await self.get_survey_details(survey_id)
-        responses = await self.get_responses(survey_id, response_amount, custom_variables)
-        details = DetailsParser.parse_survey(details)
-        responses = ResponseParser.parse_responses(responses, details)
+        details = self._get_survey_details(survey_id)
+        responses = self._get_responses(survey_id, response_amount, custom_variables)
+        details = await details
+        responses = await responses
         return PandasParser(details, responses).convert()
     
     async def create_dfs(self, response_amount = 50, custom_variables: dict = None) -> dict:
         """Create pandas dataframes from surveys"""
-        dfs = {}
+        dfs: dict[str, aio.Task] = {}
 
         for survey_id in self.survey_ids:
             dfs[survey_id] = aio.create_task(self.create_df(survey_id, response_amount, custom_variables))
@@ -83,9 +87,9 @@ class API2Pandas:
     def run(self, response_amount = 50, custom_variables: dict = None) -> pd.DataFrame:
         """Run the parser"""
         self.dfs = aio.run(self.create_dfs(response_amount, custom_variables))
-        self.close()
+        self._close()
     
-        return self.df
+        return self.dfs
 
     def _close(self) -> None:
         """Close the client session"""

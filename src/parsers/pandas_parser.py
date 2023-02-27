@@ -13,7 +13,7 @@ class DataframeHeader:
 
     @property
     def latest_index(self) -> int:
-        return self.get_length() - 1
+        return self.length - 1
     
     @property
     def header(self) -> list[str]:
@@ -43,8 +43,8 @@ class ColumnMap:
         self.choices = {}
         self.rows = {}
     
-    def add_question(self, id: str, index: int) -> None:
-        self.questions[id] = index
+    def add_question(self, id: str, index: int, details: dict) -> None:
+        self.questions[id] = (index, details)
     
     def add_choice(self, id: str, index: int) -> None:
         self.choices[id] = index
@@ -60,6 +60,10 @@ class ColumnMap:
     
     def get_row_index(self, id: str) -> int:
         return self.rows[id]
+    
+    def get_value(self, question_id: str, choice_id: str) -> dict:
+        choices = self.questions[question_id][1]["answers"]["choices"]
+        return next(filter(lambda choice: choice["choice_id"] == choice_id, choices))["value"]
 
 class PandasParser:
     """Class to convert Survey data to Pandas DataFrames"""
@@ -75,7 +79,7 @@ class PandasParser:
         "last_name",
     ]
 
-    def __init__(self, survey_details: dict, survey_responses: dict) -> None:
+    def __init__(self, survey_details: dict, survey_responses: list[dict]) -> None:
         self.responses = []
         self.header = DataframeHeader()
         self.id_map = ColumnMap()
@@ -88,8 +92,8 @@ class PandasParser:
         self._get_header()
         self._get_responses()
 
-        self.df = pd.DataFrame(columns=self.header.headers).append(self.responses, ignore_index=True)
-
+        self.df = pd.DataFrame(self.responses, columns=list(self.header.headers))
+        
         return self.df
 
     def _get_header(self) -> None:
@@ -99,74 +103,74 @@ class PandasParser:
             self.header.add_header(variable)
         
         for question in self.survey_details["questions"]:
+            question_id, question_text = get_values(question, "question_id", "text")
+            self.id_map.add_question(question_id, self.header.length, question)
+
             match question["family"]:
                 case "single_choice":
-                    id, text = get_values(question, "question_id", "text")
-
-                    self.header.add_header(text)
-                    self.id_map.add_question(id, self.header.latest_index)
+                    self.header.add_header(question_text)
 
                 case "multiple_choice":
                     choices = get_nested_value(question, "answers/choices")
-                    question_id, question_text = get_values(question, "question_id", "text")
-                    choice_id, choice_text = get_values(choice[0], "id", "text")
+                    choice_id, choice_text = get_values(choices[0], "choice_id", "text")
 
+                    self.id_map.add_choice(choice_id, self.header.length)
                     self.header.add_column(question_text, choice_text)
-                    self.id_map.add_question(question_id, self.header.latest_index)
-                    self.id_map.add_choice(choice_id, self.header.latest_index)
 
                     if len(choices) > 1:
                         for choice in choices[1:]:
-                            choice_id, choice_text = get_values(choice, "id", "text")
+                            choice_id, choice_text = get_values(choice, "choice_id", "text")
+                            self.id_map.add_choice(choice_id, self.header.length)
                             self.header.add_subheader(choice_text)
-                            self.id_map.add_choice(choice_id, self.header.latest_index)
             
                 case "matrix":
                     rows = get_nested_value(question, "answers/rows")
-                    question_id, question_text = get_values(question, "question_id", "text")
-                    row_id, row_text = get_values(rows[0], "id", "text")
+                    row_id, row_text = get_values(rows[0], "row_id", "text")
 
+                    self.id_map.add_row(row_id, self.header.length)
                     self.header.add_column(question_text, row_text if len(rows) > 1 else "")
-
-                    self.id_map.add_question(question_id, self.header.latest_index)
-                    self.id_map.add_row(row_id, self.header.latest_index)
 
                     if len(rows) > 1:
                         for row in question["answers"]["rows"][1:]:
-                            row_id, row_text = get_values(row, "id", "text")
+                            row_id, row_text = get_values(row, "row_id", "text")
+                            self.id_map.add_row(row_id, self.header.length)
                             self.header.add_subheader(row_text)
-                            self.id_map.add_row(row_id, self.header.latest_index)
         
     def _get_responses(self) -> None:
         """Get responses from survey responses"""
-        for response in self.survey_responses["data"]:
+        for response in self.survey_responses:
 
             # Create a new row for each response with length of header.length
             row = [None] * self.header.length
 
-            for variable in self.STATIC_VARIABLES:
-                index = self.id_map.get_question_index(variable)
+            for index, variable in enumerate(self.STATIC_VARIABLES):
                 row[index] = response.get(variable, None)
+                if row[index] is None:
+                    row[index] = self.survey_details.get(variable, None)
 
             for question in response["questions"]:
-                match question["family"]:
+                question_id = question["question_id"]
+                header_index, details = self.id_map.get_question_index(question_id)
+
+                match details["family"]:
                     case "single_choice":
-                        id, value = get_values(question, "id", "answers/choices/value")
-                        index = self.id_map.get_question_index(id)
-                        row[index] = value
+                        choice_id = get_nested_value(question, "answers/0/choice_id")
+                        value = self.id_map.get_value(question_id, choice_id)
+                        row[header_index] = value
 
                     case "multiple_choice":
-                        choices = get_nested_value(question, "answers/choices")
-                        for choice in choices:
-                            id, value = get_values(choice, "id", "value")
-                            index = self.id_map.get_choice_index(id)
+                        for choice in question["answers"]:
+                            choice_id = choice["choice_id"]
+                            index = self.id_map.get_choice_index(choice_id)
+                            value = self.id_map.get_value(question_id, choice_id)
                             row[index] = value
                     
                     case "matrix":
-                        for row in question["answers"]["rows"]:
-                            id, value = get_values(row, "id", "value")
-                            index = self.id_map.get_row_index(id)
-                            row[id] = value
+                        for row in question["answers"]:
+                            choice_id, row_id = get_values(row, "choice_id", "row_id")
+                            index = self.id_map.get_row_index(row_id)
+                            value = self.id_map.get_value(question_id, choice_id)
+                            row[index] = value
 
             self.responses.append(row)
 

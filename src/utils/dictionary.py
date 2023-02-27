@@ -10,7 +10,10 @@ def get_nested_value(data: dict, path: str) -> str | int | list | dict:
     path = path.split("/")
 
     for key in path:
-        data = data[key]
+        if isinstance(data, list):
+            data = data[int(key)]
+        else:
+            data = data[key]
 
     return data
 
@@ -19,6 +22,6 @@ def get_values(data: dict, *args) -> tuple[str | int | list | dict]:
     values = []
 
     for arg in args:
-        values.append(data[arg])
+        values.append(get_nested_value(data, arg))
 
     return tuple(values)

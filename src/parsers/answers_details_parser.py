@@ -1,7 +1,10 @@
 class AnswerDetailsParser:
     @classmethod
-    def parse(cls, answers: dict, family: str, subtype: str = "") -> list:
+    def parse(cls, question: dict, family: str, subtype: str = "") -> list:
+        answers = question.get("answers", None)
         match family:
+            case "open_ended":
+                return None
             case "single_choice":
                 return cls._parse_single_choice(answers)
             case "multiple_choice":
@@ -18,17 +21,21 @@ class AnswerDetailsParser:
     # A list of dicts with following keys: "choice_id", "text", "value"
     @classmethod
     def _parse_single_choice(cls, answers: dict) -> list:
-        choices = answers["choices"]
-        return list(
+        choices = list(
             map(
                 lambda choice: {
                     "choice_id": choice["id"],
                     "text": choice["text"],
                     "value": choice["position"],
                 },
-                choices,
+                answers["choices"],
             )
         )
+
+        return {
+            "rows": [],
+            "choices": choices,
+        }
 
     @classmethod
     def _parse_matrix_single(cls, answers: dict) -> list:
@@ -74,14 +81,18 @@ class AnswerDetailsParser:
 
     @classmethod
     def _parse_multiple_choice(cls, answers: dict) -> list:
-        choices = answers["choices"]
-        return list(
+        choices = list(
             map(
                 lambda choice: {
                     "choice_id": choice["id"],
                     "text": choice["text"],
                     "value": choice["position"],
                 },
-                choices,
+                answers["choices"],
             )
         )
+
+        return {
+            "rows": [],
+            "choices": choices,
+        }

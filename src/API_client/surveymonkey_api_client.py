@@ -1,18 +1,17 @@
 from enum import Enum
 import json
+import asyncio as aio
 import aiohttp
 # from asynci import as_completed
 
-from requests import Authbase, Request, Session
+# class TokenAuthentication(Authbase):
+#     """Attaches HTTPS API Token to a given Request object."""
 
-class TokenAuthentication(Authbase):
-    """Attaches HTTPS API Token to a given Request object."""
-
-    def __init__(self, api_token: str):
-        self.api_token = api_token
+#     def __init__(self, api_token: str):
+#         self.api_token = api_token
     
-    def __call__(self, r: Request):
-        r.headers['Authentication'] = f"bearer {self.api_token}"
+#     def __call__(self, r: Request):
+#         r.headers['Authentication'] = f"bearer {self.api_token}"
 
 class Endpoint(str, Enum):
     SURVEY = "v3/surveys"
@@ -23,15 +22,29 @@ class SurveyMonkeyAPIClient:
     BASE_URL = "https://api.surveymonkey.net"
 
     def __init__(self, api_token: str):
-        self.auth = TokenAuthentication(api_token)
-        self.session = Session()
+        self.auth = {
+            "Authorization": f"bearer {api_token}"
+        }
+        self.session: aiohttp.ClientSession = None
+    
+    # def __del__(self):
+        # aio.run(self.session.close())
+    
+    async def get_session(self):
+        if not self.session:
+            self.session = aiohttp.ClientSession(headers=self.auth)
+        return self.session
 
     async def _fetch(self, url: str, params: dict) -> dict:
-        response = self.session.get(url, auth=self.auth, params=params)
-        return response.json()
+        async with aiohttp.ClientSession(headers=self.auth) as session:
+            async with session.get(url, params=params) as response:
+                return await response.json()
+        session = await self.get_session()
+        async with session.get(url, params=params) as response:
+            return await response.json()
 
     async def fetch_data(self, endpoint: str, params: dict = {}) -> dict:
-        data = await self._fetch(f"{self.BASE_URL}/{endpoint}", params=params)
+        data = await aio.create_task(self._fetch(f"{self.BASE_URL}/{endpoint}", params=params))
         return data
 
     async def get_surveys(self, amount=50, search_str: str = None) -> list[dict]:
@@ -67,4 +80,5 @@ class SurveyMonkeyAPIClient:
         return response["data"]
 
     async def close(self):
-        await self.session.close()
+        if self.session:
+            await self.session.close()

@@ -1,5 +1,5 @@
 from src.utils.dictionary import get_values, get_nested_value
-from src.parsers.answers_response_parser import AnswersResponseAdapter
+from src.parsers.answers_response_parser import AnswersResponseParser
 
 class ResponseParser:
     STATIC_VARIABLES = [
@@ -14,30 +14,17 @@ class ResponseParser:
     ]
 
     @classmethod
-    def parse_question(cls, response: dict, question_details: dict) -> dict:
+    def parse_question(cls, response: dict) -> dict:
         """Get question details"""
-        question_id, family, subtype, answers = get_values(response, "id", "family", "subtype", "answers")
+        question_id, answers = get_values(response, "id", "answers")
 
         return {
             "question_id": question_id,
-            "family": family,
-            "subtype": subtype,
-            "answers": AnswersResponseAdapter.convert(answers, question_details, family, subtype),
+            "answers": AnswersResponseParser.parse(answers),
         }
     
     @classmethod
-    def parse_questions(cls, questions: list, details: dict) -> list:
-        """Get questions details"""
-        parsed_questions = []
-        for question in questions:
-            question_id = question["id"]
-            question_details = details[question_id]
-            parsed_questions.append(cls.parse_question(question, question_details))
-            
-        return [cls.parse_question(question) for question in questions]
-    
-    @classmethod
-    def parse_response(cls, response: dict, details: dict) -> dict:
+    def parse_response(cls, response: dict) -> dict:
         """Get response details"""
         parsed_response = {}
 
@@ -45,14 +32,15 @@ class ResponseParser:
             parsed_response[variable] = response.get(variable, None)
         
         questions = []
-
+        
         for page in response["pages"]:
             questions.extend(page["questions"])
-        
-        parsed_response["questions"] = cls.parse_questions(questions, details)
+
+        parsed_response["questions"] = [cls.parse_question(question) for question in questions]
 
         return parsed_response
     
-    def parse_responses(cls, responses: list, details: dict) -> list:
+    @classmethod
+    def parse_responses(cls, responses: list) -> list:
         """Get responses details"""
-        return [cls.parse_response(response, details) for response in responses]
+        return [cls.parse_response(response) for response in responses]
