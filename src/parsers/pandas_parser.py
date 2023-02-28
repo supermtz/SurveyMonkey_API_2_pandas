@@ -135,6 +135,12 @@ class PandasParser:
                             row_id, row_text = get_values(row, "row_id", "text")
                             self.id_map.add_row(row_id, self.header.length)
                             self.header.add_subheader(row_text)
+                
+                case "open_ended":
+                    self.header.add_header(question_text)
+                
+                case "datetime":
+                    self.header.add_header(question_text)
         
     def _get_responses(self) -> None:
         """Get responses from survey responses"""
@@ -171,6 +177,14 @@ class PandasParser:
                             index = self.id_map.get_row_index(row_id)
                             value = self.id_map.get_value(question_id, choice_id)
                             row[index] = value
+                    
+                    case "open_ended":
+                        value = get_nested_value(question, "answers/0/text")
+                        row[header_index] = value
+                    
+                    case "datetime":
+                        value = get_nested_value(question, "answers/0/text")
+                        row[header_index] = value
 
             self.responses.append(row)
 

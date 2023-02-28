@@ -13,6 +13,7 @@ class AnswersResponseParser:
                 lambda answer: {
                     "row_id": answer.get("row_id", ""),
                     "choice_id": answer.get("choice_id", ""),
+                    "text": answer.get("text", ""),
                 },
                 answers,
             )
